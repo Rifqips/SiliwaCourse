@@ -7,10 +7,10 @@ use App\Models\Checkout;
 use App\Models\Camps;
 use App\Models\User;
 use Illuminate\Http\Request;
-use App\Http\Requests\User\Checkout\Store;
 use Illuminate\Support\Facades\Auth;
 use Mail;
 use App\Mail\Checkout\AfterCheckout;
+
 
 class CheckoutController extends Controller
 {
@@ -39,19 +39,13 @@ class CheckoutController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Store $request, Camps $camp)
+    public function store(Request $request, Camps $camp)
     {
-        // mapping request data
+        // mapping data
         $data = $request->all();
         $data['user_id'] = Auth::id();
         $data['camp_id'] = $camp->id;
 
-        // update user data
-        // $user = User::findOrFail(Auth::id());
-        // $user->email = $data['email'];
-        // $user->name = $data['name'];
-        // $user->ocupation = $data['ocupation'];
-        // $user->save();
         // update user data
         $user = User::findOrFail(Auth::id());
         $user->email = $data['email'];
@@ -59,15 +53,10 @@ class CheckoutController extends Controller
         $user->ocupation = $data['ocupation'];
         $user->save();
 
-        return view($user);
-
         // create checkout
-        // $checkout = Checkout::create($data);
-        // $checkout->headers->set('Accept', 'application/json');
-        // // sending email
-        // Mail::to(Auth::user()->email)->send(new AfterCheckout($checkout));
-
-        // return redirect(route('checkout.success'));
+        $checkout = Checkout::create($data);
+        Mail::to(Auth::user()->email)->send(new AfterCheckout($checkout));
+        return redirect(route('checkout.success'));
     }
 
     /**
@@ -105,7 +94,7 @@ class CheckoutController extends Controller
     {
         return view('checkout.success');
     }
-
+    
     public function invoice(Checkout $checkout)
     {
         return $checkout;
