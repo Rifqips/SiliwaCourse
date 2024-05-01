@@ -40,6 +40,7 @@ Route::middleware(['auth'])->group(function () {
     Route::POST('checkout/{camp}', [CheckoutController::class, 'store'])->name('checkout.store');
     // user dashboard
     Route::get('dashboard',[HomeController::class, 'dashboard'] )->name('user.dashboard');
+    Route::get('dashboard/checkout/invoice/{checkout}',[CheckoutController::class, 'invoice'] )->name('checkout.invoice');
 
 });
 
@@ -49,10 +50,10 @@ Route::get('auth/google/callback', [UserController::class, 'handleProviderCallba
 
 
 
-Route::middleware('auth')->group(function () {
-    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
-});
+// Route::middleware('auth')->group(function () {
+//     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+//     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+//     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+// });
 
 require __DIR__.'/auth.php';

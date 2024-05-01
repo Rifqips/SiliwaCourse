@@ -6,6 +6,8 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Laravel\Socialite\Facades\Socialite;
+use Mail;
+use App\Mail\User\AfterRegister;
 
 class UserController extends Controller
 {
@@ -23,31 +25,22 @@ class UserController extends Controller
     {
         // Validasi callback dari Google
         $callback = Socialite::driver('google')->stateless()->user();
+        $data = [
+            'name' => $callback->getName(),
+            'email' => $callback->getEmail(),
+            'avatar' => $callback->getAvatar(),
+            'email_verified_at' => date('Y-m-d H:i:s', time()),
+        ];
 
-        // Periksa apakah email ada
-        if (!$callback->getEmail()) {
-            return redirect()->route('login')->with('error', 'Email tidak tersedia.');
-        }
-
-        // Periksa apakah pengguna sudah ada di database
-        $user = User::where('email', $callback->getEmail())->first();
-
+        // $user = User::firstOrCreate(['email' => $data['email']], $data);
+        $user = User::whereEmail($data['email'])->first();
         if (!$user) {
-            // Jika tidak, buat pengguna baru
-            $user = new User([
-                'name' => $callback->getName(),
-                'email' => $callback->getEmail(),
-                'avatar' => $callback->getAvatar(),
-                'email_verified_at' => now(), // Gunakan waktu sekarang
-            ]);
-
-            $user->save();
+            $user = User::create($data);
+            Mail::to($user->email)->send(new AfterRegister($user));
         }
-
-        // Login pengguna
         Auth::login($user, true);
 
-        return redirect()->route('welcome');
+        return redirect(route('welcome'));
     }
 }
 

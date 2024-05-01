@@ -30,7 +30,7 @@
                 </a>
                 <ul class="dropdown-menu" aria-labelledby="dropdownMenuLink" style="right: 0; left: auto;">
                     <li>
-                        <a href="#" class="dropdown-item">Dasbor Saya</a>
+                        <a href="{{ route('user.dashboard') }}" class="dropdown-item">Dasbord Saya</a>
                     </li>
                     <li>
                         <a href="#" class="dropdown-item" onclick="event.preventDefault(); document.getElementById('logout-form').submit()">Keluar</a>
