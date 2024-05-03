@@ -4,14 +4,16 @@ namespace App\Http\Controllers\User;
 
 use App\Http\Controllers\Controller;
 use App\Models\Checkout;
-use App\Models\Camps;
-use App\Models\User;
 use Illuminate\Http\Request;
+use App\Http\Requests\User\Checkout\Store;
+use App\Mail\Checkout\AfterCheckout;
+use App\Models\Camps;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Mail;
-use App\Mail\Checkout\AfterCheckout;
-use PhpParser\Node\Stmt\TryCatch;
+use App\Models\User;
+use Midtrans\Snap;
+use Midtrans\Config;
 use Midtrans;
 use Exception;
 
@@ -20,13 +22,16 @@ class CheckoutController extends Controller
 
     public function __construct()
     {
-        Midtrans\Config::$serverKey = env('MIDTRANS_SERVERKEY');
-        Midtrans\Config::$isProduction = env('MIDTRANS_IS_PRODUCTION');
-        Midtrans\Config::$isSanitized = env('MIDTRANS_IS_SANITIZED');
-        Midtrans\Config::$is3ds = env('MIDTRANS_IS_3DS');
+        Config::$serverKey = env('MIDTRANS_SERVERKEY');
+        Config::$isProduction = env('MIDTRANS_IS_PRODUCTION');
+        Config::$isSanitized = env('MIDTRANS_IS_SANITIZED');
+        Config::$is3ds = env('MIDTRANS_IS_3DS');
     }
+
     /**
      * Display a listing of the resource.
+     *
+     * @return \Illuminate\Http\Response
      */
     public function index()
     {
@@ -35,6 +40,8 @@ class CheckoutController extends Controller
 
     /**
      * Show the form for creating a new resource.
+     *
+     * @return \Illuminate\Http\Response
      */
     public function create(Camps $camp, Request $request)
     {
@@ -49,10 +56,13 @@ class CheckoutController extends Controller
 
     /**
      * Store a newly created resource in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\Response
      */
-    public function store(Request $request, Camps $camp)
+    public function store(Store $request, Camps $camp)
     {
-        // mapping data
+        // mapping request data
         $data = $request->all();
         $data['user_id'] = Auth::id();
         $data['camp_id'] = $camp->id;
@@ -62,17 +72,25 @@ class CheckoutController extends Controller
         $user->email = $data['email'];
         $user->name = $data['name'];
         $user->ocupation = $data['ocupation'];
+        $user->phone = $data['phone'];
+        $user->address = $data['address'];
         $user->save();
-
+       
         // create checkout
         $checkout = Checkout::create($data);
         $this->getSnapRedirect($checkout);
+
+        // sending email
         Mail::to(Auth::user()->email)->send(new AfterCheckout($checkout));
+
         return redirect(route('checkout.success'));
     }
 
     /**
      * Display the specified resource.
+     *
+     * @param  \App\Models\Checkout  $checkout
+     * @return \Illuminate\Http\Response
      */
     public function show(Checkout $checkout)
     {
@@ -81,6 +99,9 @@ class CheckoutController extends Controller
 
     /**
      * Show the form for editing the specified resource.
+     *
+     * @param  \App\Models\Checkout  $checkout
+     * @return \Illuminate\Http\Response
      */
     public function edit(Checkout $checkout)
     {
@@ -89,6 +110,10 @@ class CheckoutController extends Controller
 
     /**
      * Update the specified resource in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  \App\Models\Checkout  $checkout
+     * @return \Illuminate\Http\Response
      */
     public function update(Request $request, Checkout $checkout)
     {
@@ -97,6 +122,9 @@ class CheckoutController extends Controller
 
     /**
      * Remove the specified resource from storage.
+     *
+     * @param  \App\Models\Checkout  $checkout
+     * @return \Illuminate\Http\Response
      */
     public function destroy(Checkout $checkout)
     {
@@ -109,27 +137,26 @@ class CheckoutController extends Controller
     }
 
     /**
-     * Midtrans handler
+     * Midtrans Handler
      */
-
     public function getSnapRedirect(Checkout $checkout)
     {
-        // $orderId = $checkout->id.'-'.Str::random(5);
-
         $orderId = $checkout->id.'-'.Str::random(5);
         $price = $checkout->Camp->price * 1000;
-        $checkout->midtrans_booking_code = $orderId;
 
-        $transaction_details = [
-            'order_id' => $orderId,
-            'gross_amount' => $price,
-        ];
+        $checkout->midtrans_booking_code = $orderId;
 
         $item_details[] = [
             'id' => $orderId,
             'price' => $price,
             'quantity' => 1,
             'name' => "Payment for {$checkout->Camp->title} Camp"
+        ];
+
+        $total = $price;
+        $transaction_details = [
+            'order_id' => $orderId,
+            'gross_amount' => $total
         ];
 
         $userData = [
@@ -139,8 +166,8 @@ class CheckoutController extends Controller
             "city" => "",
             "postal_code" => "",
             "phone" => $checkout->User->phone,
-            "country_code"=>"IDN"
-        ]; 
+            "country_code" => "IDN",
+        ];
 
         $customer_details = [
             "first_name" => $checkout->User->name,
@@ -148,27 +175,28 @@ class CheckoutController extends Controller
             "email" => $checkout->User->email,
             "phone" => $checkout->User->phone,
             "billing_address" => $userData,
-            "shipping_address" => $userData
+            "shipping_address" => $userData,
         ];
 
         $midtrans_params = [
-            'transaction_details'=> $transaction_details,
+            'transaction_details' => $transaction_details,
             'customer_details' => $customer_details,
-            'item_details' => $item_details
+            'item_details' => $item_details,
         ];
 
-        try{
-            $paymentUrl = \Midtrans\Snap::createTransaction($midtrans_params)->redirect_url;
+        try {
+            // Get Snap Payment Page URL
+            $paymentUrl = Snap::createTransaction($midtrans_params)->redirect_url;
             $checkout->midtrans_url = $paymentUrl;
             $checkout->save();
 
             return $paymentUrl;
-        }catch(Exception $e){
+        } catch (Exception $e) {
             return false;
         }
     }
 
-    function midtransCallback(Request $request)
+    public function midtransCallback(Request $request)
     {
         $notif = $request->method() == 'POST' ? new Midtrans\Notification() : Midtrans\Transaction::status($request->order_id);
 
@@ -216,8 +244,6 @@ class CheckoutController extends Controller
         }
 
         $checkout->save();
-        return view('checkout/success');    
+        return view('checkout/success');
     }
-
-        
 }

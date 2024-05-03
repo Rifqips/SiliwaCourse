@@ -62,9 +62,9 @@
                             </div>
                             <div class="mb-4">
                                 <label class="form-label">Address</label>
-                                <input name="Address" type="text" class="form-control {{$errors->has('Address') ? 'is-invalid' : ''}}" value="{{old('Address') ?: Auth::user()->Address}}" required  />
-                                @if ($errors->has('Address'))
-                                    <p class="text-danger">{{$errors->first('phone')}}</p>
+                                <input name="address" type="text" class="form-control {{$errors->has('address') ? 'is-invalid' : ''}}" value="{{old('address') ?: Auth::user()->address}}" required  />
+                                @if ($errors->has('address'))
+                                    <p class="text-danger">{{$errors->first('address')}}</p>
                                 @endif
                             </div>
                             <button type="submit" class="w-100 btn btn-primary">Pay Now</button>
