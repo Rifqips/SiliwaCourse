@@ -9,10 +9,10 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Mail;
 use App\Mail\Checkout\AfterCheckout;
 use PhpParser\Node\Stmt\TryCatch;
 use Midtrans;
-use Mail;
 use Exception;
 
 class CheckoutController extends Controller
@@ -66,7 +66,7 @@ class CheckoutController extends Controller
 
         // create checkout
         $checkout = Checkout::create($data);
-        $this->getSnapRedirect($checkout)
+        $this->getSnapRedirect($checkout);
         Mail::to(Auth::user()->email)->send(new AfterCheckout($checkout));
         return redirect(route('checkout.success'));
     }
